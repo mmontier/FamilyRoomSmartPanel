@@ -89,6 +89,7 @@ def bootstrap() -> dict[str, Any]:
         "metrics": config.METRICS,
         "cameras": config.CAMERAS,
         "manual_camera_seconds": config.MANUAL_CAMERA_SECONDS,
+        "hour_clock": config.HOUR_CLOCK,
         "slideshow_url": SETTINGS.slideshow_url,
         "slideshow_port": SETTINGS.slideshow_port,
         # changes when a rebuild ships new assets; the page reloads itself on it
@@ -221,6 +222,14 @@ async def stock_refresh() -> dict[str, Any]:
         raise HTTPException(502, f"stock: {exc}") from exc
     await HA.broadcast({"type": "stock", "quote": quote})
     return {"ok": True, "quote": quote}
+
+
+@app.post("/api/hourclock")
+async def hourclock(seconds: int | None = None) -> dict[str, Any]:
+    """Show the big clock now, whatever the hour (testing, or from Node-RED)."""
+    secs = seconds or int(config.HOUR_CLOCK.get("seconds") or 15)
+    await HA.broadcast({"type": "hour_clock", "seconds": secs})
+    return {"ok": True, "seconds": secs}
 
 
 @app.post("/api/popup-close")

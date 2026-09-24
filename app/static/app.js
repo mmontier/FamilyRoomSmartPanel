@@ -13,6 +13,7 @@ const el = {
   stockK: $("stock-k"), stockV: $("stock-v"),
   camOverlay: $("cam-overlay"), camPoster: $("cam-poster"), camVideo: $("cam-video"),
   camTitle: $("cam-title"), camNote: $("cam-note"),
+  hourClock: $("hourclock-overlay"), hourClockTime: $("hourclock-time"), hourClockMer: $("hourclock-mer"),
   histOverlay: $("hist-overlay"), histTitle: $("hist-title"), histNow: $("hist-now"),
   histChart: $("hist-chart"), histStats: $("hist-stats"),
 };
@@ -154,6 +155,55 @@ function tickClock() {
   el.clock.textContent = `${h % 12 || 12}:${String(now.getMinutes()).padStart(2, "0")}`;
   el.meridiem.textContent = h < 12 ? "AM" : "PM";
   el.date.textContent = now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+  if (!el.hourClock.hidden) {
+    el.hourClockTime.textContent = el.clock.textContent;
+    el.hourClockMer.textContent = el.meridiem.textContent;
+  }
+}
+
+// ---- hourly big clock -----------------------------------------------------
+// Top of the hour the whole screen becomes the time for a few seconds, then
+// goes back. Window and duration are HOUR_CLOCK in config.py. The timer is
+// rearmed off the wall clock after every firing rather than run on a fixed
+// interval, so it cannot drift away from :00 over a week of uptime.
+
+const hourClock = { timer: null, closeTimer: null, fadeTimer: null };
+
+function showHourClock(seconds) {
+  clearTimeout(hourClock.closeTimer);
+  clearTimeout(hourClock.fadeTimer);
+  el.hourClockTime.textContent = el.clock.textContent;
+  el.hourClockMer.textContent = el.meridiem.textContent;
+  el.hourClock.hidden = false;
+  requestAnimationFrame(() => el.hourClock.classList.add("show"));
+  hourClock.closeTimer = setTimeout(hideHourClock, Math.max(2, seconds) * 1000);
+}
+
+function hideHourClock() {
+  clearTimeout(hourClock.closeTimer);
+  clearTimeout(hourClock.fadeTimer);
+  if (el.hourClock.hidden) return;
+  el.hourClock.classList.remove("show");
+  hourClock.fadeTimer = setTimeout(() => { el.hourClock.hidden = true; }, 400);
+}
+el.hourClock.addEventListener("click", hideHourClock);
+
+function fireHourClock() {
+  const cfg = boot?.hour_clock;
+  if (!cfg || cfg.enabled === false) return;
+  const h = new Date().getHours();
+  if (h < (cfg.start_hour ?? 0) || h > (cfg.end_hour ?? 23)) return;
+  // Something deliberate is already fullscreen: the door camera, or a graph he
+  // just tapped. Neither gets covered up to say what time it is.
+  if (!el.camOverlay.hidden || !el.histOverlay.hidden) return;
+  showHourClock(cfg.seconds || 15);
+}
+
+function scheduleHourClock() {
+  clearTimeout(hourClock.timer);
+  const next = new Date();
+  next.setMinutes(60, 0, 100); // :00:00.1 of the coming hour, whatever hour that is
+  hourClock.timer = setTimeout(() => { fireHourClock(); scheduleHourClock(); }, next - new Date());
 }
 
 // ---- slideshow: tap = slideshow mode, stays until tapped / swiped away -------
@@ -287,6 +337,7 @@ function openCamera(name, seconds) {
   live.closeTimer = setTimeout(closeCamera, Math.max(10, seconds) * 1000);
   if (cam_overlay_open() && live.camera === name) return; // already up: just extend
   closeHistory();
+  hideHourClock();
   const token = ++live.token;
   live.camera = name;
   el.camTitle.textContent = cam.label;
@@ -457,6 +508,7 @@ function handle(msg) {
     case "ha_status": setHaStatus(msg.connected); break;
     case "camera_popup": openCamera(msg.camera, msg.seconds || 60); break;
     case "camera_close": closeCamera(); break;
+    case "hour_clock": showHourClock(msg.seconds || 15); break;
   }
 }
 
@@ -515,6 +567,7 @@ async function init() {
   $("in-block").addEventListener("click", () => openHistory(
     { entity: e.indoor_temp, title: "Inside temperature", unit: "°", decimals: 0, minSpan: 4 }));
   setInterval(renderForecast, 10 * 60000); // roll the hourly strip forward
+  scheduleHourClock();
   connectLive();
 }
 init();

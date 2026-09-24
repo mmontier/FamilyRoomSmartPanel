@@ -118,6 +118,22 @@ h2 {
 .metric.warn .metric-v { color: var(--warn); }
 .metric.alert .metric-v { color: var(--alert); }
 
+/* ---- hourly big clock: whole screen, top of the hour, 15 s ---- */
+/* z-index 90: over the slideshow (50) and a history card (80), under a camera
+   pop-up (100) — someone at the door outranks knowing what time it is. */
+.hourclock-overlay[hidden] { display: none; }
+.hourclock-overlay {
+  position: fixed; inset: 0; z-index: 90; background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 400ms ease;
+}
+.hourclock-overlay.show { opacity: 1; }
+.hourclock { display: flex; align-items: baseline; font-weight: 200; line-height: 1;
+  letter-spacing: -0.03em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+#hourclock-time { font-size: 21vw; }
+.hourclock-mer { font-size: 6vw; font-weight: 300; color: var(--muted);
+  letter-spacing: 0.04em; margin-left: 2.2vw; }
+
 /* ---- fullscreen camera ---- */
 .cam-overlay { position: fixed; inset: 0; z-index: 100; background: #000; }
 .cam-fill { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: transparent; }

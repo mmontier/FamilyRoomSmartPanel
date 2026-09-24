@@ -66,6 +66,19 @@ STOCK = {
     "interval_seconds": 60,
 }
 
+# ---- hourly big clock ------------------------------------------------------
+# At the top of each hour the whole screen becomes a big digital clock for
+# `seconds`, then goes back to the normal panel. Fires only for hours between
+# start_hour and end_hour inclusive (24-h, house time), so the kitchen stays
+# dark overnight. Skipped while a camera is fullscreen or a history graph is
+# open — something deliberate is already on screen. A tap dismisses it early.
+HOUR_CLOCK = {
+    "enabled": True,
+    "seconds": 15,
+    "start_hour": 7,    # first hour it may fire (7 = 7:00 am)
+    "end_hour": 22,     # last hour it may fire (22 = 10:00 pm)
+}
+
 # ---- cameras ---------------------------------------------------------------
 # name = Frigate camera name (snapshot tile); stream = go2rtc stream the Pi can
 # play fullscreen (the *_display H.264 transcodes in frigate/config/config.yml).

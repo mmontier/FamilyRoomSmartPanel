@@ -35,6 +35,8 @@ Source of truth: `/home/pi/montierth_panel` on Brad's Beelink; deployed copy at
   it got there. Power also shows kWh for the last 24 h (integrated from the kW
   history) and today's kWh (`energy_today` entity). Closes on tap or after 90 s.
   Data: `GET /api/history/<entity>` (HA recorder, allowlisted, cached 60 s).
+- **Top of the hour:** the whole screen becomes a big digital clock for 15 s,
+  then goes back to whatever it was showing. 7 am - 10 pm only.
 - **Pop-up:** `binary_sensor.entry_person_occupancy` off->on => front door live
   fullscreen for 60 s over whatever is showing (slideshow mode included), then
   back. Tap anywhere closes it early. A re-trigger while up extends it.
@@ -58,6 +60,7 @@ itself drops the socket) and reloads itself — no need to touch the Pi.
 curl -s http://127.0.0.1:8777/api/health                       # includes the last stock quote
 curl -X POST http://127.0.0.1:8777/api/stock/refresh          # fetch the price now, any hour
 curl -X POST 'http://127.0.0.1:8777/api/popup/frontdoor?seconds=20'   # pop the camera
+curl -X POST 'http://127.0.0.1:8777/api/hourclock?seconds=5'          # pop the big clock
 curl -X POST  http://127.0.0.1:8777/api/popup-close
 ```
 
@@ -82,6 +85,24 @@ The price is printed green when it is above the previous day's close and red
 when below (`--ok` / `--alert`, the same pair the metrics use). If a source
 hands back no close to compare against, it stays plain white rather than
 guessing a direction.
+
+## Hourly big clock
+
+`HOUR_CLOCK` in `app/config.py`: `enabled`, `seconds` (15), and the hours it may
+fire between (`start_hour` 7 to `end_hour` 22 inclusive, 24-h, the Pi's clock).
+At :00 the `#hourclock-overlay` fades in over everything for `seconds`, then
+fades out — the panel underneath is untouched, so it comes back exactly as it
+was, slideshow mode included.
+
+The timer is rearmed off the wall clock after each firing (`scheduleHourClock`)
+rather than run on a 3600 s interval, so it cannot drift away from :00 over a
+long uptime. It is skipped while a camera is fullscreen or a history graph is
+open, and a camera pop-up landing on top of it dismisses it (z-index 90 vs the
+camera's 100 — someone at the door outranks the time). A tap closes it early.
+
+`POST /api/hourclock` shows it immediately on every open panel, whatever the
+hour — that is the test hook, and the way Node-RED could pop it for anything
+else worth looking up for a few seconds.
 
 ## Live video path
 
