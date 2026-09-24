@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Montierth Panel</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="grid">
+    <header class="header">
+      <div class="clock-block">
+        <div class="clock"><span id="clock">--:--</span><span id="meridiem" class="meridiem"></span></div>
+        <div id="date" class="date"></div>
+      </div>
+      <div class="weather-now">
+        <div id="wx-icon" class="wx-icon"></div>
+        <div id="out-block" class="wx-main tappable">
+          <div class="wx-temp"><span id="out-temp">--</span><span class="deg">°</span></div>
+          <div class="wx-sub"><span id="wx-cond">&nbsp;</span><span id="wx-hilo" class="hilo"></span></div>
+        </div>
+        <div id="in-block" class="indoor tappable">
+          <div class="indoor-k">Inside</div>
+          <div class="indoor-v"><span id="in-temp">--</span><span class="deg">°</span></div>
+        </div>
+      </div>
+      <div id="ha-banner" class="ha-banner" hidden>Home Assistant offline</div>
+    </header>
+
+    <section id="family-tile" class="family">
+      <iframe id="slideshow" title="Family photos" allow="autoplay; fullscreen" scrolling="no"></iframe>
+      <div id="slideshow-tap" class="tap-layer"></div>
+    </section>
+
+    <aside class="side">
+      <section class="house">
+        <h2>House</h2>
+        <div id="status-list" class="status-list"></div>
+      </section>
+      <section class="cams">
+        <h2>Cameras</h2>
+        <div id="cam-row" class="cam-row"></div>
+      </section>
+    </aside>
+
+    <footer class="footer">
+      <div class="stock"><span id="stock-k" class="stock-k"></span><span id="stock-v" class="stock-v">--</span></div>
+      <div id="forecast" class="forecast"></div>
+      <div id="metrics" class="metrics"></div>
+    </footer>
+  </main>
+
+  <div id="cam-overlay" class="cam-overlay" hidden>
+    <img id="cam-poster" class="cam-fill" alt="">
+    <video id="cam-video" class="cam-fill" autoplay muted playsinline></video>
+    <div class="cam-chrome">
+      <div id="cam-title" class="cam-title"></div>
+      <div id="cam-note" class="cam-note"></div>
+      <div class="cam-hint">Tap anywhere to close</div>
+    </div>
+  </div>
+
+  <div id="hist-overlay" class="hist-overlay" hidden>
+    <div class="hist-card">
+      <div class="hist-head">
+        <div>
+          <div id="hist-title" class="hist-title"></div>
+          <div class="hist-sub">Last 24 hours</div>
+        </div>
+        <div id="hist-now" class="hist-now"></div>
+      </div>
+      <div id="hist-chart" class="hist-chart"></div>
+      <div id="hist-stats" class="hist-stats"></div>
+    </div>
+    <div class="cam-hint">Tap anywhere to close</div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+services:
+  panel_dashboard:
+    build: .
+    container_name: panel_dashboard
+    env_file: .env
+    # host network: HA (8123), Frigate (5000) and go2rtc (1984) are all on localhost
+    network_mode: host
+    volumes:
+      - /home/markmontierth/cecret_lake/panel_dashboard:/home/markmontierth/cecret_lake/panel_dashboard:ro
+    restart: unless-stopped
