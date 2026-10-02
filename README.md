@@ -86,6 +86,20 @@ when below (`--ok` / `--alert`, the same pair the metrics use). If a source
 hands back no close to compare against, it stays plain white rather than
 guessing a direction.
 
+**Which price, and against what.** Once the regular session has closed the
+panel shows the official closing price, changed against the day before — so
+overnight and at weekends the footer is the day's result, not an after-hours
+tick. Nasdaq's `primaryData` is whatever is trading right now and its
+`netChange` is measured against the *most recent* close, so after the bell it
+describes after-hours drift away from that same day's close. Reading it blindly
+is what put a red 1092.71 on the screen all night on 2026-10-01, a day MU
+closed 1097.39, up 3.03%. Outside the regular session `_from_nasdaq` therefore
+prefers `secondaryData` ("Closed at Oct 1, 2026 4:00 PM ET"), falling back to
+`primaryData` when a fully closed market leaves it empty. Yahoo needs no such
+care: `regularMarketPrice` and `chartPreviousClose` already mean exactly this,
+so the two sources agree and the colour cannot flip just because the spare
+answered. `/api/health` reports `market_status` and which `block` was used.
+
 ## Hourly big clock
 
 `HOUR_CLOCK` in `app/config.py`: `enabled`, `seconds` (15), and the hours it may

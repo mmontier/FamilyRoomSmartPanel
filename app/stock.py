@@ -45,18 +45,40 @@ def _money(text: Any) -> float | None:
         return None
 
 
+def _nasdaq_pair(block: dict[str, Any]) -> tuple[float, float | None] | None:
+    """(price, the close it is changed against) out of one Nasdaq data block."""
+    price = _money(block.get("lastSalePrice"))
+    if price is None:
+        return None
+    change = _money(block.get("netChange"))
+    return price, round(price - change, 4) if change is not None else None
+
+
 async def _from_nasdaq(client: httpx.AsyncClient, symbol: str) -> dict[str, Any]:
     r = await client.get(NASDAQ_URL.format(symbol=symbol), params={"assetclass": "stocks"})
     r.raise_for_status()
     data = (r.json() or {}).get("data") or {}
-    primary = data.get("primaryData") or {}
-    price = _money(primary.get("lastSalePrice"))
-    if price is None:
-        raise ValueError("no lastSalePrice")
-    change = _money(primary.get("netChange"))
-    return {"price": price,
-            "previous_close": round(price - change, 4) if change is not None else None,
-            "quote_time": None, "source": "nasdaq"}
+    status = (data.get("marketStatus") or "").strip()
+    # primaryData is whatever is trading right now, and its netChange is measured
+    # against the most recent close — which after the bell is *that same day's*
+    # close. Reading it blindly compares a thin after-hours tick to the close it
+    # just came from: on 2026-10-01 MU closed 1097.39 (+32.28, +3.03%), drifted to
+    # 1092.71 by 4:29 pm ET, and the panel sat red all night on a 3% up day.
+    # Outside the regular session we want the official close instead, which is
+    # what secondaryData holds ("Closed at Oct 1, 2026 4:00 PM ET") changed
+    # against the day before. Fully closed markets can leave secondaryData empty,
+    # so primaryData stays as the fallback — there it is the close anyway.
+    blocks = [("primary", data.get("primaryData") or {})]
+    if "open" not in status.lower():
+        blocks.insert(0, ("secondary", data.get("secondaryData") or {}))
+    for which, block in blocks:
+        pair = _nasdaq_pair(block)
+        if pair is None:
+            continue
+        price, previous_close = pair
+        return {"price": price, "previous_close": previous_close, "quote_time": None,
+                "source": "nasdaq", "market_status": status or None, "block": which}
+    raise ValueError("no lastSalePrice")
 
 
 async def _from_yahoo(client: httpx.AsyncClient, symbol: str, host: str) -> dict[str, Any]:
@@ -67,11 +89,14 @@ async def _from_yahoo(client: httpx.AsyncClient, symbol: str, host: str) -> dict
     price = meta.get("regularMarketPrice")
     if price is None:
         raise ValueError("no regularMarketPrice")
+    # No session trap here: regularMarketPrice is the regular session's price
+    # (the close, once it has closed) and chartPreviousClose is the day before —
+    # already the pair the panel wants, so both sources now agree on meaning.
     return {"price": float(price),
             "previous_close": meta.get("chartPreviousClose") or meta.get("previousClose"),
             # epoch ms of the trade, not of our poll
             "quote_time": (meta.get("regularMarketTime") or 0) * 1000 or None,
-            "source": host}
+            "source": host, "market_status": meta.get("marketState")}
 
 
 class StockClient:
