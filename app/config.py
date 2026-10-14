@@ -36,6 +36,7 @@ STATUS_ITEMS = [
     {"entity": "cover.large_garage_door_door", "label": "Large garage", "kind": "garage"},
     {"entity": "cover.small_garage_door_door", "label": "Small garage", "kind": "garage"},
     {"entity": "binary_sensor.shop_side_door_2_contact", "label": "Shop side door", "kind": "door"},
+    {"entity": "binary_sensor.shop_garage_door_zigbee_sensor_contact", "label": "Shop garage door", "kind": "door"},
 ]
 
 # ---- small metric readouts -------------------------------------------------
