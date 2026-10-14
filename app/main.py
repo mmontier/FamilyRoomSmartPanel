@@ -90,6 +90,7 @@ def bootstrap() -> dict[str, Any]:
         "cameras": config.CAMERAS,
         "manual_camera_seconds": config.MANUAL_CAMERA_SECONDS,
         "hour_clock": config.HOUR_CLOCK,
+        "door_watch": config.DOOR_WATCH,
         "slideshow_url": SETTINGS.slideshow_url,
         "slideshow_port": SETTINGS.slideshow_port,
         # changes when a rebuild ships new code; the page reloads itself on it.
@@ -234,6 +235,18 @@ async def hourclock(seconds: int | None = None) -> dict[str, Any]:
     """Show the big clock now, whatever the hour (testing, or from Node-RED)."""
     secs = seconds or int(config.HOUR_CLOCK.get("seconds") or 15)
     await HA.broadcast({"type": "hour_clock", "seconds": secs})
+    return {"ok": True, "seconds": secs}
+
+
+@app.post("/api/doorwatch")
+async def doorwatch(seconds: int | None = None) -> dict[str, Any]:
+    """Run the overnight door check now, whatever the hour (testing, or from Node-RED).
+
+    Shows nothing if every watched door is shut: it is the real check, not a
+    forced overlay.
+    """
+    secs = seconds or int(config.DOOR_WATCH.get("seconds") or 600)
+    await HA.broadcast({"type": "door_watch", "seconds": secs})
     return {"ok": True, "seconds": secs}
 
 

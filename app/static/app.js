@@ -14,6 +14,7 @@ const el = {
   camOverlay: $("cam-overlay"), camPoster: $("cam-poster"), camVideo: $("cam-video"),
   camTitle: $("cam-title"), camNote: $("cam-note"),
   hourClock: $("hourclock-overlay"), hourClockTime: $("hourclock-time"), hourClockMer: $("hourclock-mer"),
+  doorOverlay: $("door-overlay"), doorList: $("door-list"),
   histOverlay: $("hist-overlay"), histTitle: $("hist-title"), histNow: $("hist-now"),
   histChart: $("hist-chart"), histStats: $("hist-stats"),
 };
@@ -195,7 +196,7 @@ function fireHourClock() {
   if (h < (cfg.start_hour ?? 0) || h > (cfg.end_hour ?? 23)) return;
   // Something deliberate is already fullscreen: the door camera, or a graph he
   // just tapped. Neither gets covered up to say what time it is.
-  if (!el.camOverlay.hidden || !el.histOverlay.hidden) return;
+  if (!el.camOverlay.hidden || !el.histOverlay.hidden || !el.doorOverlay.hidden) return;
   showHourClock(cfg.seconds || 15);
 }
 
@@ -204,6 +205,97 @@ function scheduleHourClock() {
   const next = new Date();
   next.setMinutes(60, 0, 100); // :00:00.1 of the coming hour, whatever hour that is
   hourClock.timer = setTimeout(() => { fireHourClock(); scheduleHourClock(); }, next - new Date());
+}
+
+// ---- overnight door warning -------------------------------------------------
+// Between door_watch.start and .end, a door left open or a lock left unlocked
+// takes the screen over with its name in huge type for door_watch.seconds, then
+// goes quiet. Deliberately NOT dismissable by tapping: shutting the door is the
+// only way to clear it early. Each door warns once per opening, so leaving one
+// open does not nag all night, but shutting and reopening it warns again.
+const doorWatch = { warned: new Set(), until: 0, forced: false, fadeTimer: null };
+
+function doorWatchSeconds() { return (boot?.door_watch?.seconds || 600) * 1000; }
+
+// The same not-ok the House list already colours: catches jammed / half-open too.
+function offendingDoors() {
+  const out = [];
+  for (const item of boot?.status_items || []) {
+    const st = states[item.entity]?.state;
+    const [word, level] = (STATUS_WORDS[item.kind] || {})[st] || ["", ""];
+    if (level === "warn" || level === "alert") out.push({ ...item, word, level });
+  }
+  return out;
+}
+
+function hhmm(v, fallback) {
+  const [h, m] = String(v ?? fallback).split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+function inDoorWindow(d = new Date()) {
+  const cfg = boot?.door_watch;
+  if (!cfg || cfg.enabled === false) return false;
+  const now = d.getHours() * 60 + d.getMinutes();
+  const a = hhmm(cfg.start, "22:30"), b = hhmm(cfg.end, "06:00");
+  return a <= b ? now >= a && now < b : now >= a || now < b;   // end before start = wraps midnight
+}
+
+function paintDoorWatch(list) {
+  el.doorList.innerHTML = "";
+  el.doorList.classList.toggle("many", list.length > 3);
+  for (const d of list) {
+    const row = document.createElement("div");
+    row.className = `door-row ${d.level}`;
+    row.innerHTML = `<span class="door-name"></span><span class="door-state"></span>`;
+    row.children[0].textContent = (d.label || "").toUpperCase();
+    row.children[1].textContent = (d.word || "").toUpperCase();
+    el.doorList.appendChild(row);
+  }
+}
+
+function showDoorWatch() {
+  clearTimeout(doorWatch.fadeTimer);
+  el.doorOverlay.hidden = false;
+  requestAnimationFrame(() => el.doorOverlay.classList.add("show"));
+}
+
+function hideDoorWatch() {
+  clearTimeout(doorWatch.fadeTimer);
+  if (el.doorOverlay.hidden) return;
+  el.doorOverlay.classList.remove("show");
+  doorWatch.fadeTimer = setTimeout(() => { el.doorOverlay.hidden = true; }, 400);
+}
+
+function checkDoorWatch() {
+  const open = offendingDoors();
+  const openIds = new Set(open.map(d => d.entity));
+  // shut = eligible to warn again the next time it opens
+  for (const id of [...doorWatch.warned]) if (!openIds.has(id)) doorWatch.warned.delete(id);
+
+  const windowed = inDoorWindow();
+  if (!windowed && !doorWatch.forced) {
+    doorWatch.until = 0; doorWatch.warned.clear(); hideDoorWatch(); return;
+  }
+  if (windowed && open.some(d => !doorWatch.warned.has(d.entity))) {
+    doorWatch.until = Date.now() + doorWatchSeconds();     // a door we have not warned about yet
+    open.forEach(d => doorWatch.warned.add(d.entity));
+  }
+  if (doorWatch.until <= Date.now() || !open.length) {     // timed out, or every door is shut now
+    doorWatch.forced = false; hideDoorWatch(); return;
+  }
+  if (!el.camOverlay.hidden) { hideDoorWatch(); return; }  // person at the front door outranks it
+  paintDoorWatch(open);
+  showDoorWatch();
+}
+
+// POST /api/doorwatch - the real check, on demand. Shows nothing if all is shut.
+function forceDoorWatch(seconds) {
+  if (!offendingDoors().length) return;
+  doorWatch.forced = true;
+  doorWatch.until = Date.now() + (seconds ? seconds * 1000 : doorWatchSeconds());
+  offendingDoors().forEach(d => doorWatch.warned.add(d.entity));
+  checkDoorWatch();
 }
 
 // ---- slideshow: tap = slideshow mode, stays until tapped / swiped away -------
@@ -338,6 +430,7 @@ function openCamera(name, seconds) {
   if (cam_overlay_open() && live.camera === name) return; // already up: just extend
   closeHistory();
   hideHourClock();
+  hideDoorWatch();
   const token = ++live.token;
   live.camera = name;
   el.camTitle.textContent = cam.label;
@@ -375,6 +468,7 @@ function closeCamera() {
   el.camPoster.onload = el.camPoster.onerror = null;
   stopStream();
   el.camOverlay.hidden = true;
+  checkDoorWatch();        // a door warning the camera covered up comes straight back
   el.camPoster.removeAttribute("src");
 }
 el.camOverlay.addEventListener("click", closeCamera);
@@ -501,14 +595,15 @@ function setHaStatus(connected) { el.haBanner.hidden = !!connected; }
 
 function handle(msg) {
   switch (msg.type) {
-    case "states": Object.assign(states, msg.states); renderAll(); break;
-    case "state_changed": states[msg.entity_id] = msg.state; renderAll(); break;
+    case "states": Object.assign(states, msg.states); renderAll(); checkDoorWatch(); break;
+    case "state_changed": states[msg.entity_id] = msg.state; renderAll(); checkDoorWatch(); break;
     case "forecast": forecast = msg.forecast || []; renderForecast(); break;
     case "stock": stock = msg.quote || stock; renderStock(); break;
     case "ha_status": setHaStatus(msg.connected); break;
     case "camera_popup": openCamera(msg.camera, msg.seconds || 60); break;
     case "camera_close": closeCamera(); break;
     case "hour_clock": showHourClock(msg.seconds || 15); break;
+    case "door_watch": forceDoorWatch(msg.seconds); break;
   }
 }
 
@@ -568,6 +663,7 @@ async function init() {
     { entity: e.indoor_temp, title: "Inside temperature", unit: "°", decimals: 0, minSpan: 4 }));
   setInterval(renderForecast, 10 * 60000); // roll the hourly strip forward
   scheduleHourClock();
+  setInterval(checkDoorWatch, 15000);
   connectLive();
 }
 init();

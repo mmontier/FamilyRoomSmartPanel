@@ -80,6 +80,23 @@ HOUR_CLOCK = {
     "end_hour": 22,     # last hour it may fire (22 = 10:00 pm)
 }
 
+# ---- overnight door warning ------------------------------------------------
+# From `start` until `end`, a door that is open (or a lock that is unlocked)
+# takes the whole screen over with its name in huge type, for `seconds`, then
+# goes quiet again. The screen clears itself the moment the last offending door
+# is shut, and a tap does NOT dismiss it - only closing the door does.
+# A door is warned about once per opening: shut it and open it again and it
+# warns again, but leaving it open does not re-nag.
+# Watches the House rows above, so a row added there is covered automatically.
+# "Offending" is the same not-ok the House list already colours amber/red, so a
+# jammed lock or a garage stuck half way counts too.
+DOOR_WATCH = {
+    "enabled": True,
+    "start": "22:30",
+    "end": "06:00",    # next morning; the window wraps midnight
+    "seconds": 600,    # 10 minutes
+}
+
 # ---- cameras ---------------------------------------------------------------
 # name = Frigate camera name (snapshot tile); stream = go2rtc stream the Pi can
 # play fullscreen (the *_display H.264 transcodes in frigate/config/config.yml).
