@@ -92,8 +92,13 @@ def bootstrap() -> dict[str, Any]:
         "hour_clock": config.HOUR_CLOCK,
         "slideshow_url": SETTINGS.slideshow_url,
         "slideshow_port": SETTINGS.slideshow_port,
-        # changes when a rebuild ships new assets; the page reloads itself on it
-        "build": max(int(p.stat().st_mtime) for p in STATIC.iterdir() if p.is_file()),
+        # changes when a rebuild ships new code; the page reloads itself on it.
+        # Covers app/*.py as well as static/: a config.py-only change (a new status
+        # row, a new camera) is invisible in static/, so before 2026-10-13 the
+        # kitchen screen kept showing the old layout until something reloaded it.
+        "build": max(int(q.stat().st_mtime)
+                     for q in (*STATIC.iterdir(), *Path(__file__).parent.glob("*.py"))
+                     if q.is_file()),
     }
 
 
