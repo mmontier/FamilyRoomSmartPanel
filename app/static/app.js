@@ -162,11 +162,12 @@ function tickClock() {
   }
 }
 
-// ---- hourly big clock -----------------------------------------------------
-// Top of the hour the whole screen becomes the time for a few seconds, then
-// goes back. Window and duration are HOUR_CLOCK in config.py. The timer is
-// rearmed off the wall clock after every firing rather than run on a fixed
-// interval, so it cannot drift away from :00 over a week of uptime.
+// ---- big clock ------------------------------------------------------------
+// On the hour and the half hour (HOUR_CLOCK.every_minutes) the whole screen
+// becomes the time for a few seconds, then goes back. Window and duration are
+// HOUR_CLOCK in config.py. The timer is rearmed off the wall clock after every
+// firing rather than run on a fixed interval, so it cannot drift off the
+// boundary over a week of uptime.
 
 const hourClock = { timer: null, closeTimer: null, fadeTimer: null };
 
@@ -202,9 +203,13 @@ function fireHourClock() {
 
 function scheduleHourClock() {
   clearTimeout(hourClock.timer);
-  const next = new Date();
-  next.setMinutes(60, 0, 100); // :00:00.1 of the coming hour, whatever hour that is
-  hourClock.timer = setTimeout(() => { fireHourClock(); scheduleHourClock(); }, next - new Date());
+  const every = Math.min(60, Math.max(1, boot?.hour_clock?.every_minutes || 60));
+  const now = new Date();
+  const next = new Date(now);
+  // the coming :00 / :30 (or whatever the step is), a hair past the minute.
+  // setMinutes(60) rolls into the next hour by itself.
+  next.setMinutes(Math.floor(now.getMinutes() / every) * every + every, 0, 100);
+  hourClock.timer = setTimeout(() => { fireHourClock(); scheduleHourClock(); }, next - now);
 }
 
 // ---- overnight door warning -------------------------------------------------
