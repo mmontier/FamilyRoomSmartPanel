@@ -164,6 +164,17 @@ setsid runuser -u admin -- env WAYLAND_DISPLAY=wayland-0 DISPLAY=:0 XDG_RUNTIME_
 ```
 
 and re-enable the HA automation `Front Door Person Display Popup`.
+Also `touch /etc/panel-watchdog.no-page-check` on the Pi, or its watchdog will
+reboot it every 20 minutes for not hearing from this page (see below).
+
+## Stale-page watchdog
+
+While its live socket is open the page POSTs `/api/heartbeat` once a minute; the
+server keeps the last check-in per client IP (`panels` in `/api/health`, and
+`GET /api/heartbeat/age` returns the caller's own age in seconds as a bare
+number). The Pi's watchdog (`~/home_config/monitoring/panel-watchdog`, systemd
+timer) reboots the Pi when the server answers but this screen has been silent for
+5 minutes. Install/details: `~/home_config/migration-status.md`.
 
 ## Check your work visually
 

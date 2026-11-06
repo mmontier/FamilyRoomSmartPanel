@@ -622,9 +622,20 @@ async function loadBootstrap() {
   return data;
 }
 
+// Check in with the server once a minute, but only while the live socket is open.
+// The Pi's watchdog reboots the Pi when these stop while the server is up: a frozen
+// or crashed tab, or a socket that never came back, all look the same from there.
+let liveWs = null;
+function sendHeartbeat() {
+  if (!liveWs || liveWs.readyState !== WebSocket.OPEN) return;
+  fetch(`/api/heartbeat?build=${loadedBuild}`, { method: "POST", cache: "no-store" }).catch(() => {});
+}
+
 function connectLive() {
   const scheme = location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${scheme}://${location.host}/api/live`);
+  liveWs = ws;
+  ws.onopen = sendHeartbeat;
   ws.onmessage = (e) => { try { handle(JSON.parse(e.data)); } catch (err) { console.error(err); } };
   ws.onclose = () => {
     setTimeout(async () => {
@@ -669,6 +680,7 @@ async function init() {
   setInterval(renderForecast, 10 * 60000); // roll the hourly strip forward
   scheduleHourClock();
   setInterval(checkDoorWatch, 15000);
+  setInterval(sendHeartbeat, 60000);
   connectLive();
 }
 init();

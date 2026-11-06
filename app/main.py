@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import config
@@ -26,6 +26,11 @@ HA = HomeAssistantClient(SETTINGS)
 CAMERAS = {cam["name"]: cam for cam in config.CAMERAS}
 STOCK = StockClient(config.STOCK, lambda msg: HA.broadcast(msg))
 HTTP: httpx.AsyncClient | None = None
+# Page check-ins by client IP. The kitchen Pi's watchdog reads its own age from
+# /api/heartbeat/age and reboots the Pi when the page has gone quiet
+# (home_config/monitoring/panel-watchdog).
+STARTED = time.time()
+HEARTBEATS: dict[str, dict[str, Any]] = {}
 
 
 async def _on_change(entity_id: str, old: dict[str, Any] | None, new: dict[str, Any]) -> None:
@@ -69,7 +74,29 @@ def index() -> HTMLResponse:
 def health() -> dict[str, Any]:
     return {"ok": True, "ha_connected": HA.connected, "ha_error": HA.last_error,
             "stock": STOCK.quote, "stock_error": STOCK.last_error,
-            "stock_trading_now": STOCK.trading_now()}
+            "stock_trading_now": STOCK.trading_now(),
+            "panels": {ip: {"age": int(time.time() - hb["at"]), "build": hb["build"]}
+                       for ip, hb in HEARTBEATS.items()}}
+
+
+@app.post("/api/heartbeat")
+def heartbeat(request: Request, build: int | None = None) -> dict[str, Any]:
+    """The page posts this once a minute while its live socket is open."""
+    ip = request.client.host if request.client else "?"
+    if ip not in HEARTBEATS:
+        LOG.info("panel %s checking in (build %s)", ip, build)
+    HEARTBEATS[ip] = {"at": time.time(), "build": build}
+    return {"ok": True}
+
+
+@app.get("/api/heartbeat/age", response_class=PlainTextResponse)
+def heartbeat_age(request: Request) -> str:
+    """Seconds since the caller's page last checked in, as a bare number for the
+    Pi's bash watchdog. Never seen since this server started = time since start,
+    so a page that died before a rebuild still counts as stale."""
+    ip = request.client.host if request.client else "?"
+    hb = HEARTBEATS.get(ip)
+    return str(int(time.time() - (hb["at"] if hb else STARTED)))
 
 
 @app.get("/api/bootstrap")
