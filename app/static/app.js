@@ -83,10 +83,37 @@ function renderStatus() {
   }
 }
 
+const FORECAST_SLOTS = 4;
+
+// second line under a metric: [text, level]
+const METRIC_SUBS = {
+  solar() {
+    const t = parseFloat(states["sensor.tesla_solar_today"]?.state);
+    return [Number.isFinite(t) ? `${t.toFixed(1)} kWh today` : "", ""];
+  },
+  powerwall() {
+    const w = parseFloat(states["sensor.tesla_battery_power"]?.state);
+    const res = parseFloat(states["sensor.tesla_backup_reserve"]?.state);
+    let flow = "";
+    if (Number.isFinite(w)) {
+      const kw = (Math.abs(w) / 1000).toFixed(1);
+      flow = w > 50 ? `\u2193 ${kw} kW` : w < -50 ? `\u2191 ${kw} kW` : "idle";
+    }
+    const parts = [flow, Number.isFinite(res) ? `reserve ${Math.round(res)}%` : ""].filter(Boolean);
+    if (states["binary_sensor.tesla_grid_outage"]?.state === "on") return [["GRID OUT", ...parts].join(" \u00b7 "), "alert"];
+    return [parts.join(" \u00b7 "), ""];
+  },
+};
+
+function metricRaw(m) {
+  const v = parseFloat(states[m.entity]?.state);
+  return Number.isFinite(v) ? v * (m.scale || 1) : NaN;
+}
+
 function renderMetrics() {
   el.metrics.innerHTML = "";
   for (const m of boot.metrics) {
-    const raw = parseFloat(states[m.entity]?.state);
+    const raw = metricRaw(m);
     let level = "";
     if (Number.isFinite(raw)) {
       if (m.alert != null && raw >= m.alert) level = "alert";
@@ -101,6 +128,13 @@ function renderMetrics() {
     box.innerHTML = `<div class="metric-k"></div><div class="metric-v"></div>`;
     box.children[0].textContent = m.label;
     box.children[1].innerHTML = `${shown}${m.unit ? `<small>${m.unit}</small>` : ""}`;
+    if (m.sub && METRIC_SUBS[m.sub]) {
+      const [text, subLevel] = METRIC_SUBS[m.sub]();
+      const sub = document.createElement("div");
+      sub.className = `metric-sub ${subLevel}`;
+      sub.textContent = text || "\u00a0";
+      box.appendChild(sub);
+    }
     el.metrics.appendChild(box);
   }
 }
@@ -120,7 +154,7 @@ function renderForecast() {
   const upcoming = forecast.filter((f) => new Date(f.datetime).getTime() > now - 30 * 60000);
   const day = upcoming.slice(0, 24).map((f) => f.temperature).filter(Number.isFinite);
   el.wxHilo.textContent = day.length ? `High ${Math.round(Math.max(...day))}°  ·  Low ${Math.round(Math.min(...day))}°` : "";
-  for (const f of upcoming.filter((_, i) => i % 2 === 0).slice(0, 6)) {
+  for (const f of upcoming.filter((_, i) => i % 2 === 0).slice(0, FORECAST_SLOTS)) {
     const d = new Date(f.datetime);
     let h = d.getHours();
     const mer = h < 12 ? "am" : "pm";
@@ -558,7 +592,7 @@ async function openHistory(spec) {
   hist.closeTimer = setTimeout(closeHistory, HIST_SECONDS * 1000);
   const unit = spec.unit === "°" ? "°" : spec.unit ? `<small>${spec.unit}</small>` : "";
   el.histTitle.textContent = spec.title || spec.label;
-  const now = parseFloat(states[spec.entity]?.state);
+  const now = spec.scale ? metricRaw(spec) : parseFloat(states[spec.entity]?.state);
   el.histNow.innerHTML = Number.isFinite(now) ? `${fmtVal(now, spec)}${unit}` : "";
   el.histChart.innerHTML = `<div class="hist-msg">Loading…</div>`;
   el.histStats.innerHTML = "";
@@ -570,6 +604,12 @@ async function openHistory(spec) {
     data = await r.json();
   } catch (_) { data = null; }
   if (token !== hist.token) return;
+  if (data && data.min && spec.scale) {  // e.g. W from HA, shown as kW
+    const k = spec.scale;
+    data.points = data.points.map(([t, v]) => [t, v * k]);
+    data.min.v *= k; data.max.v *= k;
+    if (data.integral_hours != null) data.integral_hours *= k;
+  }
   if (!data || !data.min || data.points.length < 2) {
     el.histChart.innerHTML = `<div class="hist-msg">No history available</div>`;
     return;

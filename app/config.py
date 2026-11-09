@@ -44,7 +44,16 @@ STATUS_ITEMS = [
 # Every metric (and both header temperatures) opens a 24 h graph when tapped.
 # energy_today = a kWh entity shown beside the graph; the graph also integrates
 # the kW history itself for a rolling last-24-h kWh figure.
+# scale multiplies the raw state (W -> kW); sub = a small second line, built in
+# app.js from the extra entities listed (Tesla ones come from Brad's Beelink
+# collector, see ~/home_config/tesla-energy.md).
 METRICS = [
+    {"entity": "sensor.tesla_solar_power", "label": "Solar", "unit": "kW", "decimals": 1, "scale": 0.001,
+     "energy_today": "sensor.tesla_solar_today", "sub": "solar",
+     "extra": ["sensor.tesla_solar_today"]},
+    {"entity": "sensor.tesla_battery_level", "label": "Powerwall", "unit": "%", "decimals": 0,
+     "title": "Powerwall charge", "sub": "powerwall",
+     "extra": ["sensor.tesla_battery_power", "sensor.tesla_backup_reserve", "binary_sensor.tesla_grid_outage"]},
     {"entity": "sensor.totalusage_power_minute_average", "label": "Power", "unit": "kW", "decimals": 1,
      "energy_today": "sensor.totalusage_energy_today"},
     {"entity": "sensor.family_room_carbon_dioxide", "label": "CO2", "unit": "ppm", "decimals": 0,
@@ -132,6 +141,7 @@ class Settings:
         ids.update(item["entity"] for item in STATUS_ITEMS)
         ids.update(item["entity"] for item in METRICS)
         ids.update(item["energy_today"] for item in METRICS if item.get("energy_today"))
+        ids.update(e for item in METRICS for e in item.get("extra", []))
         ids.update(item["entity"] for item in POPUP_TRIGGERS)
         return ids
 
