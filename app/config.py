@@ -35,7 +35,7 @@ STATUS_ITEMS = [
 # No "House" heading (2026-11-21, Mark): six rows fill the space the heading + five rows used.
     {"entity": "lock.front_door_lock", "label": "Front door", "kind": "lock"},
     {"entity": "lock.mudroom_door", "label": "Mudroom door", "kind": "lock"},     # August lock
-    {"entity": "lock.garage_door", "label": "Garage door", "kind": "lock"},       # August lock, house-to-garage door
+    {"entity": "lock.garage_door", "label": "Hall door", "kind": "lock"},         # August lock (HA calls it Garage Door); Mark: "Hall door"
     {"entity": "cover.large_garage_door_door", "label": "Large garage", "kind": "garage"},
     {"entity": "cover.small_garage_door_door", "label": "Small garage", "kind": "garage"},
     {"entity": "binary_sensor.shop_garage_door_zigbee_sensor_contact", "label": "Shop garage", "kind": "door"},
