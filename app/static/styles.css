@@ -63,21 +63,26 @@ h2 {
 
 /* ---- side column ---- */
 .side { grid-area: side; display: flex; flex-direction: column; gap: 22px; min-height: 0; }
-.status-list { display: flex; flex-direction: column; }
-.status-row {
-  display: flex; align-items: baseline; justify-content: space-between;
-  padding: 11px 0; border-bottom: 1px solid var(--rule);
+/* Two columns (2026-11-24, Mark): the first 4 STATUS_ITEMS (locks) fill the left column, the rest (garages) the right.
+   Each cell is the name over a big state word. */
+.status-list {
+  display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: column;
+  grid-template-rows: repeat(4, auto); column-gap: 28px;
 }
-.status-row:last-child { border-bottom: 0; }
-.status-label { font-size: 32px; font-weight: 400; }
-.status-value { font-size: 32px; font-weight: 600; color: var(--muted); }
+.status-row {
+  display: flex; flex-direction: column; align-items: flex-start;
+  padding: 8px 0; border-bottom: 1px solid var(--rule);
+}
+.status-row:nth-child(4), .status-row:last-child { border-bottom: 0; }
+.status-label { font-size: 26px; font-weight: 400; color: var(--muted); }
+.status-value { font-size: 34px; font-weight: 600; color: var(--muted); }
 .status-row.ok .status-value { color: var(--ok); }
 .status-row.warn .status-value { color: var(--warn); }
 .status-row.alert .status-value { color: var(--alert); }
 .status-row.warn .status-label::before,
 .status-row.alert .status-label::before {
-  content: ""; display: inline-block; width: 14px; height: 14px; border-radius: 50%;
-  margin-right: 14px; background: currentColor; vertical-align: 4px;
+  content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+  margin-right: 10px; background: currentColor; vertical-align: 4px;
 }
 .status-row.warn .status-label { color: var(--warn); }
 .status-row.alert .status-label { color: var(--alert); }
