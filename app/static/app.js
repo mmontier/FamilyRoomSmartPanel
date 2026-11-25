@@ -69,16 +69,64 @@ const STATUS_WORDS = {
   door: { off: ["Closed", "ok"], on: ["Open", "warn"] },
 };
 
+// Door list (2026-11-24, Mark): just the name, coloured by state (green shut/locked, yellow open/unlocked,
+// red jammed, grey unknown). Tap toggles a lock or garage; unlock / open needs a second tap within 4 s.
+// While the command is out the name pulses until the state changes (August locks can take a while).
+const DOOR_TAP = {
+  lock: { locked: ["unlock", true], unlocked: ["lock", false], jammed: ["lock", false] },
+  garage: { closed: ["open", true], open: ["close", false] },
+};
+const ARM_WORDS = { unlock: "Tap again\nto unlock", open: "Tap again\nto open" };
+const doorUi = {};   // entity -> { armed: timer, pending: {from, timer}, note: [text, timer] }
+
+function doorNote(entity, text, ms = 5000) {
+  const u = (doorUi[entity] ||= {});
+  clearTimeout(u.note?.[1]);
+  u.note = [text, setTimeout(() => { delete u.note; renderStatus(); }, ms)];
+  renderStatus();
+}
+
+async function doorTap(item) {
+  const st = states[item.entity]?.state;
+  const u = (doorUi[item.entity] ||= {});
+  if (u.pending) return;
+  const plan = (DOOR_TAP[item.kind] || {})[st];
+  if (!plan) return;                      // shop sensor, offline, opening/closing...
+  const [action, needsConfirm] = plan;
+  if (needsConfirm && !u.armed) {
+    u.armed = setTimeout(() => { delete u.armed; renderStatus(); }, 4000);
+    renderStatus();
+    return;
+  }
+  clearTimeout(u.armed); delete u.armed;
+  u.pending = { from: st, timer: setTimeout(() => { delete u.pending; doorNote(item.entity, "No\nresponse"); }, 45000) };
+  renderStatus();
+  try {
+    const r = await fetch(`/api/door/${encodeURIComponent(item.entity)}/${action}`, { method: "POST" });
+    if (!r.ok) throw new Error(r.status);
+  } catch {
+    clearTimeout(u.pending?.timer); delete u.pending;
+    doorNote(item.entity, "Didn't\nwork");
+  }
+}
+
 function renderStatus() {
   el.statusList.innerHTML = "";
   for (const item of boot.status_items) {
     const s = states[item.entity]?.state;
-    const [word, level] = (STATUS_WORDS[item.kind] || {})[s] || ["--", ""];
+    const [, level] = (STATUS_WORDS[item.kind] || {})[s] || ["", ""];
+    const u = doorUi[item.entity] || {};
+    if (u.pending && s !== u.pending.from) { clearTimeout(u.pending.timer); delete u.pending; }
     const row = document.createElement("div");
-    row.className = `status-row ${level}`;
-    row.innerHTML = `<span class="status-label"></span><span class="status-value"></span>`;
-    row.children[0].textContent = item.label;
-    row.children[1].textContent = word;
+    const canTap = !!(DOOR_TAP[item.kind] || {})[s];
+    const plan = (DOOR_TAP[item.kind] || {})[s];
+    const armed = u.armed && plan && ARM_WORDS[plan[0]];
+    row.className = `status-row ${level}${canTap ? " tappable" : ""}${armed ? " armed" : ""}` +
+                    `${u.pending ? " pending" : ""}${u.note && !armed ? " noted" : ""}`;
+    row.innerHTML = `<span class="status-label"></span>`;
+    // name on two lines ("Mudroom / door"): one line would have to be smaller than the old state word
+    row.children[0].textContent = armed || (u.note && u.note[0]) || item.label.replace(" ", "\n");
+    row.addEventListener("click", () => doorTap(item));
     el.statusList.appendChild(row);
   }
 }

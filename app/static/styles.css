@@ -63,29 +63,29 @@ h2 {
 
 /* ---- side column ---- */
 .side { grid-area: side; display: flex; flex-direction: column; gap: 22px; min-height: 0; }
-/* Two columns (2026-11-24, Mark): the first 4 STATUS_ITEMS (locks) fill the left column, the rest (garages) the right.
-   Each cell is the name over a big state word. */
+/* Door list (2026-11-24, Mark): two columns, the first 4 STATUS_ITEMS (locks) on the left, the rest (garages) on
+   the right. Only the name, coloured by state; tap to toggle (see doorTap in app.js). Rows are a fixed height so the
+   "Tap again" text that replaces a name never moves anything. */
 .status-list {
   display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: column;
-  grid-template-rows: repeat(4, auto); column-gap: 28px;
+  grid-template-rows: repeat(4, var(--door-row, 92px)); column-gap: 20px;
 }
 .status-row {
-  display: flex; flex-direction: column; align-items: flex-start;
-  padding: 8px 0; border-bottom: 1px solid var(--rule);
+  position: relative; display: flex; flex-direction: column; justify-content: center;
+  border-bottom: 1px solid var(--rule); border-radius: 10px; padding: 0 6px; min-width: 0;
 }
 .status-row:nth-child(4), .status-row:last-child { border-bottom: 0; }
-.status-label { font-size: 26px; font-weight: 400; color: var(--muted); }
-.status-value { font-size: 34px; font-weight: 600; color: var(--muted); }
-.status-row.ok .status-value { color: var(--ok); }
-.status-row.warn .status-value { color: var(--warn); }
-.status-row.alert .status-value { color: var(--alert); }
-.status-row.warn .status-label::before,
-.status-row.alert .status-label::before {
-  content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 50%;
-  margin-right: 10px; background: currentColor; vertical-align: 4px;
+.status-label {
+  font-size: var(--door-font, 42px); font-weight: 600; line-height: 1.0; color: var(--faint); white-space: pre-line;
 }
-.status-row.warn .status-label { color: var(--warn); }
+.status-row.ok .status-label { color: var(--ok); }
+.status-row.warn .status-label { color: #f2d544; }   /* yellow (Mark), brighter than the amber --warn */
 .status-row.alert .status-label { color: var(--alert); }
+.status-row.armed { background: rgba(255, 255, 255, 0.10); outline: 2px solid var(--ink); }
+.status-row.armed .status-label { color: var(--ink); }
+.status-row.noted .status-label { color: var(--alert); }
+.status-row.pending .status-label { animation: door-pulse 1s ease-in-out infinite; }
+@keyframes door-pulse { 50% { opacity: 0.3; } }
 
 .cams { margin-top: auto; }
 .cam-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }

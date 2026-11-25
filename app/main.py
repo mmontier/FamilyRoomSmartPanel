@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import time
@@ -275,6 +276,40 @@ async def doorwatch(seconds: int | None = None) -> dict[str, Any]:
     secs = seconds or int(config.DOOR_WATCH.get("seconds") or 600)
     await HA.broadcast({"type": "door_watch", "seconds": secs})
     return {"ok": True, "seconds": secs}
+
+
+# Tap-to-toggle on the door list (2026-11-24, Mark). Only the lock / garage rows of STATUS_ITEMS can be driven,
+# and only with these four actions. The page asks for a second tap before unlock / open.
+DOOR_ACTIONS = {
+    ("lock", "lock"): ("lock", "lock"), ("lock", "unlock"): ("lock", "unlock"),
+    ("garage", "open"): ("cover", "open_cover"), ("garage", "close"): ("cover", "close_cover"),
+}
+
+
+@app.post("/api/door/{entity_id}/{action}")
+async def door_action(entity_id: str, action: str) -> dict[str, Any]:
+    item = next((it for it in config.STATUS_ITEMS if it["entity"] == entity_id), None)
+    svc = DOOR_ACTIONS.get(((item or {}).get("kind"), action))
+    if not item or not svc:
+        raise HTTPException(404, "not a controllable door")
+    if not HA.connected:
+        raise HTTPException(503, "home assistant not connected")
+    LOG.info("door tap: %s %s", entity_id, action)
+
+    async def run() -> None:
+        # August locks answer through their cloud and can take 10-20 s; don't hold the tap open for that.
+        # The page watches the entity's state and says "No response" if nothing changes.
+        try:
+            await HA.call_service(svc[0], svc[1], {"entity_id": entity_id})
+        except Exception as exc:  # lock refused, timeout, ...
+            LOG.warning("door tap failed: %s %s: %s", entity_id, action, exc)
+
+    _DOOR_TASKS.add(task := asyncio.create_task(run()))
+    task.add_done_callback(_DOOR_TASKS.discard)
+    return {"ok": True}
+
+
+_DOOR_TASKS: set[asyncio.Task] = set()
 
 
 @app.post("/api/popup-close")

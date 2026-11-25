@@ -25,7 +25,11 @@ Source of truth: `/home/pi/montierth_panel` on Brad's Beelink; deployed copy at
 - Hero: grandkid slideshow. **Tap = slideshow mode (fullscreen). It stays there**
   — no auto-return — until a tap or a swipe down. Swipe left/right = next/back.
   The mode survives a page reload (localStorage).
-- House: lock / garages / shop door, status only (green ok, amber open).
+- Doors (two columns: 4 locks left, 3 garages right): just the name, green = locked/closed, yellow =
+  unlocked/open, red = jammed, grey = unknown. **Tap to toggle** a lock or the large/small garage. Unlock and
+  open need a second tap within 4 s ("Tap again to ..."); lock and close are one tap. The name pulses until
+  the state changes, "No response" after 45 s. Shop garage is a sensor only (not tappable).
+  `POST /api/door/<entity>/<lock|unlock|open|close>`, allowed only for lock/garage rows in STATUS_ITEMS.
 - Cameras: Frigate snapshots every 2 s. Tap = live fullscreen for 3 min.
 - Footer: MU share price (far left, green above yesterday's close / red below),
   hourly forecast, power / CO2 / AQI.
