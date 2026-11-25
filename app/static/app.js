@@ -76,7 +76,7 @@ const DOOR_TAP = {
   lock: { locked: ["unlock", true], unlocked: ["lock", false], jammed: ["lock", false] },
   garage: { closed: ["open", true], open: ["close", false] },
 };
-const ARM_WORDS = { unlock: "Tap again\nto unlock", open: "Tap again\nto open" };
+const ARM_WORDS = { unlock: "Unlock?", open: "Open?" };
 const doorUi = {};   // entity -> { armed: timer, pending: {from, timer}, note: [text, timer] }
 
 function doorNote(entity, text, ms = 5000) {
@@ -99,35 +99,41 @@ async function doorTap(item) {
     return;
   }
   clearTimeout(u.armed); delete u.armed;
-  u.pending = { from: st, timer: setTimeout(() => { delete u.pending; doorNote(item.entity, "No\nresponse"); }, 45000) };
+  u.pending = { from: st, timer: setTimeout(() => { delete u.pending; doorNote(item.entity, "No reply"); }, 45000) };
   renderStatus();
   try {
     const r = await fetch(`/api/door/${encodeURIComponent(item.entity)}/${action}`, { method: "POST" });
     if (!r.ok) throw new Error(r.status);
   } catch {
     clearTimeout(u.pending?.timer); delete u.pending;
-    doorNote(item.entity, "Didn't\nwork");
+    doorNote(item.entity, "Failed");
   }
 }
 
 function renderStatus() {
   el.statusList.innerHTML = "";
+  const cols = {};
+  for (const [key, title] of [["doors", "Doors"], ["garage", "Garage"]]) {
+    const col = document.createElement("div");
+    col.className = "door-col";
+    col.innerHTML = `<h2></h2>`;
+    col.firstChild.textContent = title;
+    el.statusList.appendChild((cols[key] = col));
+  }
   for (const item of boot.status_items) {
     const s = states[item.entity]?.state;
     const [, level] = (STATUS_WORDS[item.kind] || {})[s] || ["", ""];
     const u = doorUi[item.entity] || {};
     if (u.pending && s !== u.pending.from) { clearTimeout(u.pending.timer); delete u.pending; }
-    const row = document.createElement("div");
-    const canTap = !!(DOOR_TAP[item.kind] || {})[s];
     const plan = (DOOR_TAP[item.kind] || {})[s];
     const armed = u.armed && plan && ARM_WORDS[plan[0]];
-    row.className = `status-row ${level}${canTap ? " tappable" : ""}${armed ? " armed" : ""}` +
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `door-btn ${level || "unknown"}${plan ? "" : " inert"}${armed ? " armed" : ""}` +
                     `${u.pending ? " pending" : ""}${u.note && !armed ? " noted" : ""}`;
-    row.innerHTML = `<span class="status-label"></span>`;
-    // name on two lines ("Mudroom / door"): one line would have to be smaller than the old state word
-    row.children[0].textContent = armed || (u.note && u.note[0]) || item.label.replace(" ", "\n");
-    row.addEventListener("click", () => doorTap(item));
-    el.statusList.appendChild(row);
+    btn.textContent = armed || (u.note && u.note[0]) || item.button || item.label;
+    btn.addEventListener("click", () => doorTap(item));
+    cols[item.kind === "lock" ? "doors" : "garage"].appendChild(btn);
   }
 }
 

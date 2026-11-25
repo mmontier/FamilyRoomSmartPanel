@@ -63,28 +63,27 @@ h2 {
 
 /* ---- side column ---- */
 .side { grid-area: side; display: flex; flex-direction: column; gap: 22px; min-height: 0; }
-/* Door list (2026-11-24, Mark): two columns, the first 4 STATUS_ITEMS (locks) on the left, the rest (garages) on
-   the right. Only the name, coloured by state; tap to toggle (see doorTap in app.js). Rows are a fixed height so the
-   "Tap again" text that replaces a name never moves anything. */
-.status-list {
-  display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: column;
-  grid-template-rows: repeat(4, var(--door-row, 92px)); column-gap: 20px;
+/* Door buttons (2026-11-24, Mark's notebook sketch): two headed columns, "Doors" and "Garage", one word per button.
+   Colour = state: green locked/closed, yellow unlocked/open, red jammed, grey unknown. Tap = toggle (doorTap in
+   app.js); unlock / open first turn the button white ("Unlock?") and need a second tap. */
+.status-list { display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; }
+.door-col { display: flex; flex-direction: column; gap: 14px; }
+.door-col h2 { margin: 0 0 2px; }
+.door-btn {
+  --c: var(--faint);
+  height: 72px; border-radius: 14px; border: 3px solid var(--c); color: var(--c);
+  background: rgba(255, 255, 255, 0.04);
+  font: 600 38px/1 var(--font); letter-spacing: 0.01em; cursor: pointer; padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
-.status-row {
-  position: relative; display: flex; flex-direction: column; justify-content: center;
-  border-bottom: 1px solid var(--rule); border-radius: 10px; padding: 0 6px; min-width: 0;
-}
-.status-row:nth-child(4), .status-row:last-child { border-bottom: 0; }
-.status-label {
-  font-size: var(--door-font, 42px); font-weight: 600; line-height: 1.0; color: var(--faint); white-space: pre-line;
-}
-.status-row.ok .status-label { color: var(--ok); }
-.status-row.warn .status-label { color: #f2d544; }   /* yellow (Mark), brighter than the amber --warn */
-.status-row.alert .status-label { color: var(--alert); }
-.status-row.armed { background: rgba(255, 255, 255, 0.10); outline: 2px solid var(--ink); }
-.status-row.armed .status-label { color: var(--ink); }
-.status-row.noted .status-label { color: var(--alert); }
-.status-row.pending .status-label { animation: door-pulse 1s ease-in-out infinite; }
+.door-btn.ok { --c: var(--ok); background: rgba(127, 209, 155, 0.14); }
+.door-btn.warn { --c: #f2d544; background: rgba(242, 213, 68, 0.14); }   /* yellow (Mark), brighter than the amber --warn */
+.door-btn.alert { --c: var(--alert); background: rgba(240, 100, 90, 0.16); }
+.door-btn.inert { border-style: dashed; border-width: 2px; }   /* sensor only / busy: nothing to tap */
+.door-btn:active { transform: scale(0.97); }
+.door-btn.armed { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.door-btn.noted { --c: var(--alert); font-size: 30px; }
+.door-btn.pending { animation: door-pulse 1s ease-in-out infinite; }
 @keyframes door-pulse { 50% { opacity: 0.3; } }
 
 .cams { margin-top: auto; }

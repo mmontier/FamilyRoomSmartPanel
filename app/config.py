@@ -32,14 +32,15 @@ INDOOR_TEMP_ENTITY = "sensor.weather_station_indoor_temperature"
 # ---- "house" status rows ---------------------------------------------------
 # kind picks the wording + colour: lock | garage | door
 STATUS_ITEMS = [
-# No "House" heading (2026-11-21, Mark). Shown in two columns (2026-11-24): first 4 rows = left column (locks), rest = right (garages).
-    {"entity": "lock.front_door_lock", "label": "Front door", "kind": "lock"},
-    {"entity": "lock.mudroom_door", "label": "Mudroom door", "kind": "lock"},     # August lock
-    {"entity": "lock.garage_door", "label": "Hall door", "kind": "lock"},         # August lock (HA calls it Garage Door); Mark: "Hall door"
-    {"entity": "lock.patio_door", "label": "Patio door", "kind": "lock"},        # August (Yale) lock, added 2026-11-24
-    {"entity": "cover.large_garage_door_door", "label": "Large garage", "kind": "garage"},
-    {"entity": "cover.small_garage_door_door", "label": "Small garage", "kind": "garage"},
-    {"entity": "binary_sensor.shop_garage_door_zigbee_sensor_contact", "label": "Shop garage", "kind": "door"},
+# Panel buttons (2026-11-24, Mark's sketch): "Doors" column = kind lock, "Garage" column = the rest. "button" = the one
+# word on the button; "label" is used by the 10:30 pm door warning.
+    {"entity": "lock.front_door_lock", "label": "Front door", "button": "Front", "kind": "lock"},
+    {"entity": "lock.mudroom_door", "label": "Mudroom door", "button": "Mudroom", "kind": "lock"},     # August lock
+    {"entity": "lock.garage_door", "label": "Hall door", "button": "Hall", "kind": "lock"},         # August lock (HA calls it Garage Door); Mark: "Hall door"
+    {"entity": "lock.patio_door", "label": "Patio door", "button": "Patio", "kind": "lock"},        # August (Yale) lock, added 2026-11-24
+    {"entity": "cover.large_garage_door_door", "label": "Large garage", "button": "Large", "kind": "garage"},
+    {"entity": "cover.small_garage_door_door", "label": "Small garage", "button": "Small", "kind": "garage"},
+    {"entity": "binary_sensor.shop_garage_door_zigbee_sensor_contact", "label": "Shop garage", "button": "Shop", "kind": "door"},
 ]
 
 # ---- small metric readouts -------------------------------------------------
